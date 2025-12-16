@@ -1,29 +1,20 @@
-# XGO-Tiny a Quadrupedal robots.
+# RIG-puppy a Quadrupedal robots.
 
 (English | [中文](README.md) ))
 
-# The First Desktop Pet-Level 5-DOF Robot Dog
-
+# 🐶RIG-puppy Five-Degree-of-Freedom Robot Dog Lulu
+A lightweight intelligent robotic dog based on ESP32-S3 + XiaoZhi AI framework | Fully open-source & replicable | Supports voice and visual multimodal interaction
 ## Videos
 
-👉 [LULU: My Robot Can’t Possibly Be This Funny!](https://www.bilibili.com/video/BV1nqa8zHEqR)  
-👉 [LULU: Why Domestic Desktop Pets Are Winning!](https://www.bilibili.com/video/BV1zctqzsEAa)
+- Coming soon
 
 ---
 
 ## Introduction
 
-- This is an open-source ESP32 project by **Xia Ge**, released under the **MIT License**, allowing free personal and commercial use.  
-
-- **LULU** is built on the **ESP32-S3** platform and powered by the **Xiaozhi AI Engine**, enabling a multimodal real-time interactive system compatible with large models such as **Qwen** and **DeepSeek**.  
-
-With advanced semantic understanding and multilingual recognition capabilities, LULU can engage in natural conversations, perform tasks, and handle information queries with ease.  
-
-Its **five degrees of freedom design**, including a waist rotation joint and flexible leg mechanisms, allows lifelike movements such as waving, cuddling, and playful gestures — creating a warm and engaging interaction experience.  
-
-LULU integrates a **microphone, speaker, camera, and RGB meteor light**, supporting wake-word detection, multimodal fusion, continuous learning, and personalized voiceprint functions — offering users an immersive smart desktop pet experience.  
-
-**Luwu Dynamics** aims to help robotics enthusiasts learn and explore quadruped robot systems through this project.  
+- RIG-puppy (Lulu) is a miniature quadruped robot platform designed for education, makers, and embedded AI enthusiasts.
+Powered by the ESP32-S3 chip as the main controller, it integrates the domestic open-source AI voice framework “XiaoZhi,” enabling a fully local closed-loop pipeline including voice wake-up, natural language understanding, and action execution.
+Unlike common four-DOF robotic dogs, RIG-puppy innovatively uses five bus-style UART servos to build a 5-DOF motion structure. A waist servo is introduced, and UART bus communication greatly simplifies wiring complexity, making the robot structurally clean and allowing richer and more interesting movements.  
 
 - If you have any ideas or suggestions, feel free to submit them via **Issues**.
 
@@ -31,12 +22,13 @@ LULU integrates a **microphone, speaker, camera, and RGB meteor light**, support
 
 ## Hardware Specifications
 
-- MEMS Microphone – Effective pickup range: 1–2 m, Sensitivity: -26 dB ±3 dB  
-- 8Ω 2W Full-range Speaker – Frequency response: 200 Hz–20 kHz, Adjustable volume (0–100%)  
-- 1.09” Round TFT SPI Display – 240×240 resolution  
-- 70 mm 3V Meteor Flow Light Strip  
-- GC0308 Camera Module  
-- Consumer-grade Servos  
+- MEMS microphone, effective pickup distance 1–2 m, sensitivity -26 dB ± 3 dB 
+- 8Ω 2W full-range speaker, frequency response 200 Hz–20 kHz, supports multi-level volume adjustment (0–100%) 
+- 1.09-inch round TFT SPI display, resolution 240×240 
+- 70 mm 3 V LED meteor-light strip  
+- GC0308 camera 
+- EM3 bus UART servos
+- ICM42670 high-performance 6-axis MEMS IMU
 
 ---
 
@@ -49,9 +41,9 @@ LULU integrates a **microphone, speaker, camera, and RGB meteor light**, support
 
 ---
 
-## LULU Encyclopedia
+## RIG-puppy Encyclopedia
 
-👉 [《LULU Encyclopedia》](https://www.yuque.com/luwudynamics/pet/oytelbareyl97xgd)
+👉 [《RIG-puppy Encyclopedia》](https://www.yuque.com/luwudynamics/pet/oytelbareyl97xgd)
 
 ---
 
@@ -60,42 +52,5 @@ LULU integrates a **microphone, speaker, camera, and RGB meteor light**, support
 The firmware connects by default to the [xiaozhi.me](https://xiaozhi.me) official server.  
 Personal users can register for free access to the **Qwen real-time model**.
 
----
 
-### Development Environment
-
-- **Editor:** Cursor or VSCode  
-- **ESP-IDF:** Version 5.4 or above  
-- **Recommended OS:** Linux (faster compilation, fewer driver issues)  
-- **Code Style:** Google C++ Style Guide — please follow it before committing code  
-
----
-
-### Developer Documentation
-
-- [Custom Board Guide](main/boards/README.md) – Learn how to create your own AI board for Xiaozhi  
-- [MCP Protocol for IoT Control](docs/mcp-usage.md) – How to control IoT devices via MCP  
-- [MCP Interaction Flow](docs/mcp-protocol.md) – Implementation guide for device-side MCP protocol  
-- [MQTT + UDP Hybrid Communication Protocol](docs/mqtt-udp.md)  
-- [Detailed WebSocket Communication Protocol](docs/websocket.md)
-
----
-
-## AI Model Configuration
-
-If you already have a **Xiaozhi AI robot device** connected to the official server,  
-you can log in to the [xiaozhi.me](https://xiaozhi.me) console for model configuration.
-
----
-
-## Acknowledgements
-
-Special thanks to the following contributors or Bilibili Creator (in no particular order):
-
-- Project Manager: **Liu Pengfei (LuwuDynamics)**  
-- Bilibili Creator: **Xvsenfeng**  
-- Bilibili Creator: **Vanilla Nahida Meow**  
-- Developer: **Cai Leyan (Hustle28214)**  
-- Developer: **Wang Yunxin (KEENNESS19)**  
-- Developer: **Xu Tian (Oral-tian)**
 
