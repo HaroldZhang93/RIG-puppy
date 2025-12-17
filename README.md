@@ -41,4 +41,13 @@ RIG-pupyy is a desktop-level 5-DOF robotic dog.
 
 ## 交流QQ群 893599416
 
+## 许可证（License）
+
+本项目采用 **非商业许可（Non-Commercial License）** 发布。
+
+- ✅ 允许个人使用 / 学习 / 教育 / 科研用途  
+- ❌ 未经作者许可，**禁止任何形式的商业使用**
+
+如需进行商业授权，请联系项目作者。
+
 
