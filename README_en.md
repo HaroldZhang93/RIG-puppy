@@ -52,5 +52,13 @@ Unlike common four-DOF robotic dogs, RIG-puppy innovatively uses five bus-style 
 The firmware connects by default to the [xiaozhi.me](https://xiaozhi.me) official server.  
 Personal users can register for free access to the **Qwen real-time model**.
 
+## License
+
+This project is released under a **Non-Commercial License**.
+
+- ✅ Personal / educational / research use is allowed
+- ❌ Commercial use is NOT allowed without permission
+
+For commercial licensing, please contact the author.
 
 
