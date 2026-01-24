@@ -39,7 +39,6 @@ RIG-pupyy is a desktop-level 5-DOF robotic dog.
 
 固件默认接入 [xiaozhi.me](https://xiaozhi.me) 官方服务器，个人用户注册账号可以免费使用。
 
-## 交流QQ群 893599416
 
 ## 许可证（License）
 
