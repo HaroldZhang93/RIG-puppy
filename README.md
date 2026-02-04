@@ -33,7 +33,7 @@ RIG-pupyy is a desktop-level 5-DOF robotic dog.
 - 利用IMU实现运动学的拓展
 ### RIG-puppy百科全书
 
-👉 [《RIG-puppy开源文档》](https://www.yuque.com/luwudynamics/pet/uld90dhfn0gf979x)
+👉 [《RIG-puppy开源文档》](https://www.yuque.com/luwudynamics/pet/eghh6p5ycdgcgomf)
 
 ## 软件
 
