@@ -535,6 +535,33 @@ void Application::OnClockTimer() {
     auto display = Board::GetInstance().GetDisplay();
     display->UpdateStatusBar();
 
+    // 示例：每 10 秒切换一次激光剑模式（仅 LULU-ESP32S3 板实现了该能力）
+    // 如果你只想“调用一次”，把条件改成 (clock_ticks_ == 1) 或你想要的时刻即可。
+#ifdef CONFIG_BOARD_TYPE_LULU_ESP32S3
+    if(clock_ticks_ == 1)
+    {
+        // Schedule([]() {
+        //     Board::GetInstance().LaserControl(1); // 2 = Toggle
+        // });
+        Board::GetInstance().LaserControl(1); // 2 = Toggle
+        McpServer::GetInstance().ParseMessage(R"({
+            "jsonrpc":"2.0",
+            "id":101,
+            "method":"tools/call",
+            "params":{
+              "name":"self.dog.read_zeropos",
+              "arguments":{}
+            }
+          })");
+    }
+    if (clock_ticks_ % 10 == 0) {
+        // Schedule([]() {
+        //     Board::GetInstance().LaserControl(2); // 2 = Toggle
+        // });
+        
+    }
+#endif
+
     // Print the debug info every 10 seconds
     if (clock_ticks_ % 10 == 0) {
         // SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));

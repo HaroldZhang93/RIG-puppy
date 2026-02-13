@@ -329,6 +329,15 @@ private:
                 break;
         }
     }
+
+    bool LaserControlImpl(int mode) {
+        if (mode < 0 || mode > 2) {
+            printf("错误: 无效的 mode 值: %d\n", mode);
+            return false;
+        }
+        control_gpio(static_cast<GpioMode>(mode));
+        return true;
+    }
     
     //IoT initialization, adding support for AI-visible devices
     void InitializeIot() {
@@ -357,6 +366,33 @@ private:
             Calibrate(mode);
             return true;
         });
+
+        mcp_server.AddTool("self.dog.read_zeropos",
+            "读取并返回当前保存的舵机零位(ZeroPos)。该操作只读，不会驱动舵机运动。",
+            PropertyList(std::vector<Property>{}),
+            [](const PropertyList& properties) -> ReturnValue {
+                (void)properties;
+
+                bool ok = ReadZeroPos(); // 从 flash 读取并更新 motor[i].ZeroPos
+
+                cJSON* root = cJSON_CreateObject();
+                cJSON_AddBoolToObject(root, "success", ok);
+
+                cJSON* zero = cJSON_CreateArray();
+                cJSON* fb = cJSON_CreateArray();
+                for (int i = 0; i < MOTOR_NUM; ++i) {
+                    cJSON_AddItemToArray(zero, cJSON_CreateNumber(motor[i].ZeroPos));
+                    cJSON_AddItemToArray(fb, cJSON_CreateNumber(motor[i].FbPos));
+                }
+                cJSON_AddItemToObject(root, "zero", zero);
+                cJSON_AddItemToObject(root, "fbpos", fb);
+
+                char* json_str = cJSON_PrintUnformatted(root);
+                std::string result(json_str ? json_str : "{}");
+                cJSON_free(json_str);
+                cJSON_Delete(root);
+                return result;
+            });
 
         mcp_server.AddTool("self.dog.Wave", 
             "执行打招呼动作", 
@@ -495,13 +531,7 @@ private:
             [this](const PropertyList& properties) -> ReturnValue {
                 int modeValue = properties["mode"].value<int>();
 
-                if (modeValue < 0 || modeValue > 2) {
-                    printf("错误: 无效的 mode 值: %d\n", modeValue);
-                    return false;
-                }
-
-                control_gpio(static_cast<GpioMode>(modeValue));
-                return true;
+                return LaserControlImpl(modeValue);
             }
         );  
     }
@@ -553,6 +583,10 @@ public:
 
     virtual Camera* GetCamera() override {
         return camera_;
+    }
+
+    virtual bool LaserControl(int mode) override {
+        return LaserControlImpl(mode);
     }
 };
 

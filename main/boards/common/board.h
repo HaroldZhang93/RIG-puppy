@@ -50,6 +50,10 @@ public:
     virtual void SetPowerSaveMode(bool enabled) = 0;
     virtual std::string GetBoardJson() = 0;
     virtual std::string GetDeviceStatusJson() = 0;
+
+    // 可选能力：激光剑/激光灯控制（不同板子可选择实现）
+    // mode: 0=关闭, 1=打开, 2=切换
+    virtual bool LaserControl(int mode) { return false; }
 };
 
 #define DECLARE_BOARD(BOARD_CLASS_NAME) \
