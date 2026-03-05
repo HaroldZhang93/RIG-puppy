@@ -81,6 +81,7 @@ private:
     AudioService audio_service_;
     TaskHandle_t xgo_task_handle_ = nullptr;  
     TaskHandle_t xgo_rx_task_handle_ = nullptr;
+    TaskHandle_t debug_cmd_task_handle_ = nullptr;
     bool has_server_time_ = false;
     bool aborted_ = false;
     int clock_ticks_ = 0;
@@ -90,6 +91,8 @@ private:
     void CheckNewVersion(Ota& ota);
     void ShowActivationCode(const std::string& code, const std::string& message);
     void OnClockTimer();
+    void DebugCommandTask();
+    void HandleDebugCommand(const std::string& line);
     void XgoTask(); 
     void XgoRxTask(); 
     void SetListeningMode(ListeningMode mode);

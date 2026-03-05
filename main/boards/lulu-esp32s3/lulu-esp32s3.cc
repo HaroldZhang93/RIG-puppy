@@ -282,7 +282,8 @@ private:
     *              - 0: Exit calibration mode (save zero position and re-enable motors)
     */
     void Calibrate(int mode){
-        if(mode==1 && calibrate_mode==0){
+        // if(mode==1 && calibrate_mode==0){
+        if(mode==1){
             EnableAllMotor(0);
             calibrate_mode = 1;
         }

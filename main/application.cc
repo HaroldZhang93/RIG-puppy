@@ -10,11 +10,16 @@
 #include "mcp_server.h"
 
 #include <cstring>
+#include <cctype>
+#include <cstdlib>
+#include <sstream>
 #include <esp_log.h>
 #include <cJSON.h>
 #include <driver/gpio.h>
 #include <arpa/inet.h>
 
+#include <esp_flash.h>
+#include "xgo.h"
 #define TAG "Application"
 
 
@@ -69,6 +74,9 @@ Application::~Application() {
     }
     if (xgo_rx_task_handle_ != nullptr) {
         vTaskDelete(xgo_rx_task_handle_);
+    }
+    if (debug_cmd_task_handle_ != nullptr) {
+        vTaskDelete(debug_cmd_task_handle_);
     }
     vEventGroupDelete(event_group_);
 }
@@ -374,6 +382,12 @@ void Application::Start() {
         vTaskDelete(NULL);
     }, "xgo_rx_task", 4096, this, 2, &xgo_rx_task_handle_, 1);
 #endif
+    xTaskCreate([](void* arg) {
+        Application* app = (Application*)arg;
+        app->DebugCommandTask();
+        vTaskDelete(NULL);
+    }, "dbg_cmd_task", 6144, this, 2, &debug_cmd_task_handle_);
+
     /* Wait for the network to be ready */
     board.StartNetwork();
 
@@ -535,39 +549,283 @@ void Application::OnClockTimer() {
     auto display = Board::GetInstance().GetDisplay();
     display->UpdateStatusBar();
 
-    // 示例：每 10 秒切换一次激光剑模式（仅 LULU-ESP32S3 板实现了该能力）
-    // 如果你只想“调用一次”，把条件改成 (clock_ticks_ == 1) 或你想要的时刻即可。
-#ifdef CONFIG_BOARD_TYPE_LULU_ESP32S3
-    if(clock_ticks_ == 1)
-    {
-        // Schedule([]() {
-        //     Board::GetInstance().LaserControl(1); // 2 = Toggle
-        // });
-        Board::GetInstance().LaserControl(1); // 2 = Toggle
-        McpServer::GetInstance().ParseMessage(R"({
-            "jsonrpc":"2.0",
-            "id":101,
-            "method":"tools/call",
-            "params":{
-              "name":"self.dog.read_zeropos",
-              "arguments":{}
-            }
-          })");
-    }
-    if (clock_ticks_ % 10 == 0) {
-        // Schedule([]() {
-        //     Board::GetInstance().LaserControl(2); // 2 = Toggle
-        // });
-        
-    }
-#endif
-
     // Print the debug info every 10 seconds
     if (clock_ticks_ % 10 == 0) {
         // SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
         // SystemInfo::PrintTaskList();
         SystemInfo::PrintHeapStats();
     }
+}
+
+void Application::DebugCommandTask() {
+    constexpr int kMaxLineLength = 128;
+    std::string line;
+    line.reserve(kMaxLineLength);
+
+    printf("\r\n[DBG] 调试命令已启动，输入 help 查看命令\r\n");
+    printf("dbg> ");
+    fflush(stdout);
+
+    while (true) {
+        int ch = getchar();
+        if (ch < 0) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+
+        if (ch == '\r' || ch == '\n') {
+            printf("\r\n");
+            if (!line.empty()) {
+                HandleDebugCommand(line);
+                line.clear();
+            }
+            printf("dbg> ");
+            fflush(stdout);
+            continue;
+        }
+
+        if (ch == '\b' || ch == 127) {
+            if (!line.empty()) {
+                line.pop_back();
+                printf("\b \b");
+                fflush(stdout);
+            }
+            continue;
+        }
+
+        if (!std::isprint(static_cast<unsigned char>(ch))) {
+            continue;
+        }
+
+        if (line.size() >= kMaxLineLength) {
+            continue;
+        }
+
+        line.push_back(static_cast<char>(ch));
+        putchar(ch); // 回显键盘输入
+        fflush(stdout);
+    }
+}
+
+void Application::HandleDebugCommand(const std::string& line) {
+    std::istringstream iss(line);
+    std::string cmd;
+    iss >> cmd;
+    if (cmd.empty()) {
+        return;
+    }
+
+    std::string arg;
+    std::getline(iss, arg);
+    auto trim_left = [](std::string& s) {
+        size_t i = 0;
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) {
+            ++i;
+        }
+        s.erase(0, i);
+    };
+    trim_left(arg);
+
+    auto call_mcp_tool = [](int id, const std::string& name, const std::string& arguments_json) {
+        std::string payload = "{\"jsonrpc\":\"2.0\",\"id\":";
+        payload += std::to_string(id);
+        payload += ",\"method\":\"tools/call\",\"params\":{\"name\":\"";
+        payload += name;
+        payload += "\",\"arguments\":";
+        payload += arguments_json;
+        payload += "}}";
+        McpServer::GetInstance().ParseMessage(payload);
+    };
+
+    if (cmd == "help") {
+        printf("[DBG] 可用命令:\r\n");
+        printf("  help                   - 显示帮助\r\n");
+        printf("  test <n>               - 触发测试命令\r\n");
+        printf("  move <vx,vyaw,time>    - 机器狗移动，如 move 20,0,1000\r\n");
+        printf("  action <name>          - 触发动作，如 action wave\r\n");
+        printf("  loop <0|1>      - 动作循环: 1开始 0停止\r\n");
+        printf("  laser <0|1|2>          - 激光控制: 0关 1开 2切换\r\n");
+        printf("  calibrate <0|1>        - 舵机标定: 1进入 0退出并保存\r\n");
+        printf("  read_zeropos           - 读取零位(通过 MCP tool)\r\n");
+        printf("  state                  - 打印当前设备状态\r\n");
+        return;
+    }
+
+    if (cmd == "state") {
+        printf("[DBG] state=%s\r\n", STATE_STRINGS[device_state_]);
+        return;
+    }
+
+    if (cmd == "read_zeropos") {
+        call_mcp_tool(201, "self.dog.read_zeropos", "{}");
+        printf("[DBG] read_zeropos 已触发\r\n");
+        return;
+    }
+
+    if (cmd == "action") {
+        if (arg.empty()) {
+            printf("[DBG] 用法: action <name>\r\n");
+            printf("[DBG] 可选: wave naughty swing lookup rolling angry swimming pee stretch bouncing shaking sit scratch hug\r\n");
+            return;
+        }
+
+        // 转小写，方便输入
+        std::string action_name = arg;
+        for (char& c : action_name) {
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
+
+        std::string tool_name;
+        if (action_name == "wave") tool_name = "self.dog.Wave";
+        else if (action_name == "naughty") tool_name = "self.dog.Naughty";
+        else if (action_name == "swing") tool_name = "self.dog.Swing";
+        else if (action_name == "lookup") tool_name = "self.dog.Lookup";
+        else if (action_name == "rolling") tool_name = "self.dog.Rolling";
+        else if (action_name == "angry") tool_name = "self.dog.Angry";
+        else if (action_name == "swimming") tool_name = "self.dog.Swimming";
+        else if (action_name == "pee") tool_name = "self.dog.Pee";
+        else if (action_name == "stretch") tool_name = "self.dog.Stretch";
+        else if (action_name == "bouncing") tool_name = "self.dog.Bouncing";
+        else if (action_name == "shaking") tool_name = "self.dog.Shaking";
+        else if (action_name == "sit") tool_name = "self.dog.Sit";
+        else if (action_name == "scratch") tool_name = "self.dog.Scratch";
+        else if (action_name == "hug") tool_name = "self.dog.Hug";
+        else {
+            printf("[DBG] 未知动作: %s\r\n", arg.c_str());
+            return;
+        }
+
+        call_mcp_tool(203, tool_name, "{}");
+        printf("[DBG] action %s 已触发\r\n", arg.c_str());
+        return;
+    }
+
+    auto parse_int = [](const std::string& s, int& out) -> bool {
+        if (s.empty()) {
+            return false;
+        }
+        char* end_ptr = nullptr;
+        long v = std::strtol(s.c_str(), &end_ptr, 10);
+        if (end_ptr == s.c_str() || *end_ptr != '\0') {
+            return false;
+        }
+        out = static_cast<int>(v);
+        return true;
+    };
+
+    int value = 0;
+
+    if (cmd == "test") {
+        if (!parse_int(arg, value)) {
+            printf("[DBG] 参数错误，格式应为: test <int>\r\n");
+            return;
+        }
+        Schedule([value]() {
+            ESP_LOGI(TAG, "[DBG] test value=%d", value);
+        });
+        printf("[DBG] test %d 已触发\r\n", value);
+        return;
+    }
+
+    if (cmd == "move") {
+        if (arg.empty()) {
+            printf("[DBG] 用法: move <vx,vyaw,time>，例如 move 20,0,1000\r\n");
+            return;
+        }
+
+        int vx = 0;
+        int vyaw = 0;
+        int time_ms = 0;
+        char comma1 = 0;
+        char comma2 = 0;
+        std::istringstream move_ss(arg);
+        move_ss >> vx >> comma1 >> vyaw >> comma2 >> time_ms;
+        if (move_ss.fail() || comma1 != ',' || comma2 != ',') {
+            printf("[DBG] 参数错误，用法: move <vx,vyaw,time>\r\n");
+            return;
+        }
+        if (vx < -100 || vx > 100 || vyaw < -100 || vyaw > 100 || time_ms < 0 || time_ms > 10000) {
+            printf("[DBG] 范围错误: vx/vyaw [-100,100], time [0,10000]\r\n");
+            return;
+        }
+
+        std::string args = "{\"dog_vx\":";
+        args += std::to_string(vx);
+        args += ",\"dog_vyaw\":";
+        args += std::to_string(vyaw);
+        args += ",\"time\":";
+        args += std::to_string(time_ms);
+        args += "}";
+        call_mcp_tool(204, "self.dog.move", args);
+        printf("[DBG] move %d,%d,%d 已触发\r\n", vx, vyaw, time_ms);
+        return;
+    }
+
+    if (cmd == "laser") {
+        if (!parse_int(arg, value)) {
+            printf("[DBG] 参数错误，格式应为: laser <0|1|2>\r\n");
+            return;
+        }
+        if (value < 0 || value > 2) {
+            printf("[DBG] laser 参数范围: 0~2\r\n");
+            return;
+        }
+        Schedule([value]() {
+            Board::GetInstance().LaserControl(value);
+        });
+        printf("[DBG] laser %d 已触发\r\n", value);
+        return;
+    }
+
+    if (cmd == "calibrate") {
+        
+        if (!parse_int(arg, value)) {
+            printf("[DBG] 参数错误，格式应为: calibrate <0|1>\r\n");
+            return;
+        }
+        if (value < 0 || value > 1) {
+            printf("[DBG] calibrate 参数范围: 0~1\r\n");
+            return;
+        }
+        if(value == 1){
+            int32_t data[MOTOR_NUM] = {-1,-1,-1,-1,-1};
+            esp_err_t err = esp_flash_erase_region(NULL, FLASH_ZERO_POS_ADDR, 4096);
+            if (err != ESP_OK) {
+                printf("[DBG] 擦除零位失败\r\n");
+                return;
+            }
+            err = esp_flash_write(NULL, data, FLASH_ZERO_POS_ADDR, sizeof(data));
+            if (err != ESP_OK) {
+                printf("[DBG] 写入零位失败\r\n");
+                return;
+            }
+        }
+        std::string args = "{\"mode\":";
+        args += std::to_string(value);
+        args += "}";
+        call_mcp_tool(202, "self.dog.calibrate", args);
+        printf("[DBG] calibrate %d 已触发\r\n", value);
+        return;
+    }
+
+    if (cmd == "loop") {
+        if (!parse_int(arg, value)) {
+            printf("[DBG] 参数错误，格式应为: loop <0|1>\r\n");
+            return;
+        }
+        if (value < 0 || value > 1) {
+            printf("[DBG] loop 参数范围: 0~1\r\n");
+            return;
+        }
+        std::string args = "{\"flag\":";
+        args += std::to_string(value);
+        args += "}";
+        call_mcp_tool(205, "self.dog.action_loop", args);
+        printf("[DBG] action_loop %d 已触发\r\n", value);
+        return;
+    }
+
+    printf("[DBG] 未知命令: %s (输入 help 查看)\r\n", cmd.c_str());
 }
 
 // Add a async task to MainLoop
