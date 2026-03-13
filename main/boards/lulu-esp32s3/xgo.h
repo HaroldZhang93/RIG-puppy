@@ -33,6 +33,8 @@ void SendMotorCommand(uint8_t *pData, uint16_t size);
 void move();
 void xgo_control();
 void xgo_rx();
+void SetGaitDebug(bool enable);
+void PrintGaitDebugSnapshot();
 //Action & Behavior Functions
 void set_action_loop_flag(uint8_t flag);
 

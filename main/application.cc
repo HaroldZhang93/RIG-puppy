@@ -642,6 +642,8 @@ void Application::HandleDebugCommand(const std::string& line) {
         printf("  help                   - 显示帮助\r\n");
         printf("  test <n>               - 触发测试命令\r\n");
         printf("  move <vx,vyaw,time>    - 机器狗移动，如 move 20,0,1000\r\n");
+        printf("  gaitdbg <0|1>          - 开关步态调试日志\r\n");
+        printf("  gaitstate              - 打印当前步态参数快照\r\n");
         printf("  action <name>          - 触发动作，如 action wave\r\n");
         printf("  loop <0|1>      - 动作循环: 1开始 0停止\r\n");
         printf("  laser <0|1|2>          - 激光控制: 0关 1开 2切换\r\n");
@@ -758,6 +760,27 @@ void Application::HandleDebugCommand(const std::string& line) {
         args += "}";
         call_mcp_tool(204, "self.dog.move", args);
         printf("[DBG] move %d,%d,%d 已触发\r\n", vx, vyaw, time_ms);
+        return;
+    }
+
+    if (cmd == "gaitdbg") {
+        if (!parse_int(arg, value)) {
+            printf("[DBG] 参数错误，格式应为: gaitdbg <0|1>\r\n");
+            return;
+        }
+        if (value < 0 || value > 1) {
+            printf("[DBG] gaitdbg 参数范围: 0~1\r\n");
+            return;
+        }
+
+        SetGaitDebug(value == 1);
+        PrintGaitDebugSnapshot();
+        printf("[DBG] gaitdbg %d 已设置\r\n", value);
+        return;
+    }
+
+    if (cmd == "gaitstate") {
+        PrintGaitDebugSnapshot();
         return;
     }
 
