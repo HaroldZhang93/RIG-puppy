@@ -230,19 +230,24 @@ void move(){
     float ratio = 0.0f;
     float step = 0.0f;
     float phase_step = 0.0f;
+    // 取命令绝对值，用于判断是否起步，以及计算前进/转向的混合比例。
     float abs_vx = fabsf(vx);
     float abs_vyaw = fabsf(vyaw);
+    // 命令模长代表整体运动强度，后面会映射到步幅和步频。
     float command_mag = sqrtf(vx * vx + vyaw * vyaw);
+    // 步态主相位，类似“当前走到一条步态曲线的哪个位置”。
     static float pace_t = 0.0f;
     int x_index = 0;
     int yaw_index = 2;
 
+    // 根据前进/后退方向，选择不同的前后运动相位模板。
     if(vx > 0){
         x_index = 0;
     }else{
         x_index = 1;
     }
 
+    // 根据左转/右转方向，选择不同的转向相位模板。
     if(vyaw > 0){
         yaw_index = 3;
     }else{
@@ -250,24 +255,35 @@ void move(){
     }
 
     if(Action_ID == 0){
+        // 只有速度超过阈值才进入步态摆动，否则维持站立姿态。
         bool walk_active = (abs_vx > kMotionStartThreshold || abs_vyaw > kMotionStartThreshold);
         if(walk_active){
             float mix_sum = abs_vx + abs_vyaw;
+            // 把输入速度归一化到 0~1，作为步幅和步频的统一驱动量。
             float normalized_mag = ClampFloat(command_mag / kCommandMagnitudeLimit, 0.0f, 1.0f);
+            // ratio 越接近 1 越偏向前后步态，越接近 0 越偏向原地转向步态。
             ratio = (mix_sum > 0.0f) ? (abs_vx / mix_sum) : 1.0f;
+            // 将命令强度映射到有效步幅区间，保证低速也有足够迈腿幅度。
             step = kMinStepAmplitude + normalized_mag * (kMaxStepAmplitude - kMinStepAmplitude);
+            // 同时按命令强度映射步频，速度越大，相位推进越快。
             phase_step = kMinPhaseIncrement + normalized_mag * (kMaxPhaseIncrement - kMinPhaseIncrement);
             pace_t += phase_step;
+            // 相位始终保持在 0~2PI，避免无限增大。
             if(pace_t > 2.0f * PI){
                 pace_t -= 2.0f * PI;
             }
 
+            // 4 条腿都围绕各自 ZeroPos 做“基础站姿 + 余弦摆动”。
+            // 前两条腿使用 +cos，后两条腿使用 -cos，形成对角交替的推进节奏。
+            // 相位由前后模板和转向模板按 ratio 混合，既能直行也能边走边转。
             motor[0].DesPos = motor[0].ZeroPos - (short)kWalkLegBaseOffset + (short)(step * cosf(pace_t + ratio * l_p[x_index][0] + (1.0f - ratio) * l_p[yaw_index][0]));
             motor[1].DesPos = motor[1].ZeroPos + (short)kWalkLegBaseOffset + (short)(step * cosf(pace_t + ratio * l_p[x_index][1] + (1.0f - ratio) * l_p[yaw_index][1]));
             motor[2].DesPos = motor[2].ZeroPos - (short)kWalkLegBaseOffset - (short)(step * cosf(pace_t + ratio * l_p[x_index][2] + (1.0f - ratio) * l_p[yaw_index][2]));
             motor[3].DesPos = motor[3].ZeroPos + (short)kWalkLegBaseOffset - (short)(step * cosf(pace_t + ratio * l_p[x_index][3] + (1.0f - ratio) * l_p[yaw_index][3]));
+            // 腰舵机只做辅助摆动，帮助重心转移，因此幅度单独按比例缩放。
             motor[4].DesPos = motor[4].ZeroPos + (short)(step * kWaistSwingScale * cosf(pace_t + ratio * l_p[x_index][4] + (1.0f - ratio) * l_p[yaw_index][4]));
         }else{
+            // 静止时回到稳定站姿，并清零相位，避免下一次起步从中途相位开始。
             pace_t = 0.0f;
             motor[0].DesPos = motor[0].ZeroPos - (short)kIdleLegBaseOffset;
             motor[1].DesPos = motor[1].ZeroPos + (short)kIdleLegBaseOffset;
@@ -276,7 +292,9 @@ void move(){
             motor[4].DesPos = motor[4].ZeroPos;
         }
 
+        // 保存本轮步态结果，供串口调试命令和周期日志读取。
         UpdateGaitDebugSnapshot(walk_active, ratio, step, pace_t, phase_step);
+        // 打开调试后按固定采样间隔输出，避免每个控制周期都刷屏。
         if(gait_debug_enabled && walk_active && (++gait_debug_counter % kGaitDebugLogInterval) == 0){
             ESP_LOGI("XGO_GAIT",
                 "active=%d vx=%.1f vyaw=%.1f ratio=%.2f step=%.1f phase_step=%.3f pace_t=%.2f des=[%d,%d,%d,%d,%d]",
@@ -294,6 +312,7 @@ void move(){
                 gait_debug_snapshot.des_pos[4]);
         }
     }else{
+        // 如果当前在执行预设动作，就交给动作状态机接管舵机目标位。
         xgo_action();
     }
 } 
@@ -304,6 +323,7 @@ void SetGaitDebug(bool enable) {
 }
 
 void PrintGaitDebugSnapshot() {
+    // 打印最近一次步态解算快照，方便边发 move 命令边观察参数变化。
     printf("[GAIT] debug=%d active=%d vx=%.1f vyaw=%.1f ratio=%.2f step=%.1f phase_step=%.3f pace_t=%.2f des=[%d,%d,%d,%d,%d]\r\n",
         gait_debug_enabled ? 1 : 0,
         gait_debug_snapshot.active ? 1 : 0,
