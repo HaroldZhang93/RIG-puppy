@@ -265,14 +265,15 @@ private:
     */
     void set_dog_speed(int dog_vx, int dog_vyaw, int time)
     {        
-        motor_speed = 0;
+        motor_speed = 3000;
         vx = 3.0*dog_vx;
         vyaw = 3.0*dog_vyaw;
         if(time>0){
             vTaskDelay(pdMS_TO_TICKS(time));
+            vx = 0.0;
+            vyaw = 0.0;
         }
-        vx = 0.0;
-        vyaw = 0.0;
+        
     }
 
     /*
